@@ -1,10 +1,13 @@
 package com.imooc.wechat.demowechart.service;
 
-import cn.hutool.json.JSONObject;
+import com.alibaba.fastjson.JSONArray;
+import com.alibaba.fastjson.JSONObject;
+import com.baidu.aip.ocr.AipOcr;
 import com.google.common.collect.Maps;
 import com.imooc.wechat.demowechart.entity.*;
 import com.imooc.wechat.demowechart.util.Util;
 import com.thoughtworks.xstream.XStream;
+import lombok.extern.slf4j.Slf4j;
 import org.dom4j.Document;
 import org.dom4j.DocumentException;
 import org.dom4j.Element;
@@ -16,6 +19,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.*;
 
+@Slf4j
 public class WxTokeService {
     private static final String APPKEY = "1fec136dbd19f44743803f89bd55ca62";
     private static final String GET_TOKEN_URL = "https://api.weixin.qq.com/cgi-bin/token?grant_type=client_credential&appid=APPID&secret=APPSECRET";
@@ -31,15 +35,26 @@ public class WxTokeService {
     private static AccessToken at;
 
     /**
+     * 获取用户的基本信息
+     * @return
+     * by 罗召勇 Q群193557337
+     */
+    public static String getUserInfo(String openid) {
+        String url="https://api.weixin.qq.com/cgi-bin/user/info?access_token=ACCESS_TOKEN&openid=OPENID&lang=zh_CN";
+        url = url.replace("ACCESS_TOKEN", getAccessToken()).replace("OPENID", openid);
+        String result = Util.get(url);
+        return result;
+    }
+    /**
      * 获取token
      * by 罗召勇 Q群193557337
      */
     private static void getToken() {
         String url = GET_TOKEN_URL.replace("APPID", APPID).replace("APPSECRET", APPSECRET);
         String tokenStr = Util.get(url);
-        JSONObject jsonObject = new JSONObject(tokenStr);
-        String token = jsonObject.getStr("access_token");
-        String expireIn = jsonObject.getStr("expires_in");
+        JSONObject jsonObject = JSONObject.parseObject(tokenStr) ;
+        String token = jsonObject.getString("access_token");
+        String expireIn = jsonObject.getString("expires_in");
         //创建token对象,并存起来。
         at = new AccessToken(token, expireIn);
     }
@@ -117,7 +132,7 @@ public class WxTokeService {
                 msg = dealTextMessage(requestMap);
                 break;
             case "image":
-                // msg=dealImage(requestMap);
+                 msg=dealImage(requestMap);
                 break;
             case "voice":
 
@@ -135,7 +150,7 @@ public class WxTokeService {
 
                 break;
             case "event":
-                // msg = dealEvent(requestMap);
+                msg = dealEvent(requestMap);
                 break;
             default:
                 break;
@@ -144,6 +159,90 @@ public class WxTokeService {
         if (msg != null) {
             return beanToXml(msg);
         }
+        return null;
+    }
+    /**
+     * 处理事件推送
+     * @param requestMap
+     * @return
+     * by 罗召勇 Q群193557337
+     */
+    private static BaseMessage dealEvent(Map<String, String> requestMap) {
+        String event = requestMap.get("Event");
+        switch (event) {
+            case "CLICK":
+                return dealClick(requestMap);
+            case "VIEW":
+                return dealView(requestMap);
+            default:
+                break;
+        }
+        return null;
+    }
+    /**
+     * 进行图片识别
+     * @param requestMap
+     * @return
+     * by 罗召勇 Q群193557337
+     */
+    private static BaseMessage dealImage(Map<String, String> requestMap) {
+        log.debug("++++++++++++++++++++");
+
+        log.debug("++++++++++++++++++++");
+        // 初始化一个AipOcr
+        AipOcr client = new AipOcr(APP_ID, API_KEY, SECRET_KEY);
+        // 可选：设置网络连接参数
+        client.setConnectionTimeoutInMillis(2000);
+        client.setSocketTimeoutInMillis(60000);
+        // 调用接口
+        String path = requestMap.get("PicUrl");
+
+        //进行网络图片的识别
+        org.json.JSONObject res = client.generalUrl(path, new HashMap<String,String>());
+        String json = res.toString();
+        //转为jsonObject
+        JSONObject jsonObject = JSONObject.parseObject(json);
+        JSONArray jsonArray = jsonObject.getJSONArray("words_result");
+        log.debug("+++++++++识别结果+++++++++++");
+        log.debug(JSONArray.toJSONString(jsonArray));
+        log.debug("+++++++++识别结果+++++++++++");
+        Iterator it = jsonArray.iterator();
+        StringBuilder sb = new StringBuilder();
+        while(it.hasNext()) {
+            JSONObject next = JSONObject.parseObject(it.next().toString()) ;
+            sb.append(next.getString("words"));
+        }
+        return new TextMessage(requestMap, sb.toString());
+    }
+    /**
+     * 处理click菜单
+     * @param requestMap
+     * @return
+     * by 罗召勇 Q群193557337
+     */
+    private static BaseMessage dealClick(Map<String, String> requestMap) {
+        String key = requestMap.get("EventKey");
+        switch (key) {
+            //点击一菜单点
+            case "1":
+                //处理点击了第一个一级菜单
+                return new TextMessage(requestMap, "你点了一点第一个一级菜单");
+            case "32":
+                //处理点击了第三个一级菜单的第二个子菜单
+                return new TextMessage(requestMap, "你点了处理点击了第三个一级菜单的第二个子菜单");
+            default:
+                break;
+        }
+        return null;
+    }
+    /**
+     * 处理view类型的按钮的菜单
+     * @param requestMap
+     * @return
+     * by 罗召勇 Q群193557337
+     */
+    private static BaseMessage dealView(Map<String, String> requestMap) {
+
         return null;
     }
 
@@ -215,15 +314,14 @@ public class WxTokeService {
         try {
             result = Util.net(url, params, "GET");
             //解析json
-            JSONObject jsonObject = new JSONObject(result);
+            JSONObject jsonObject = JSONObject.parseObject(result);
             //取出error_code
-            int code = jsonObject.getInt("error_code");
+            int code = jsonObject.getInteger("error_code");
             if (code != 0) {
                 return null;
             }
             //取出返回的消息的内容
-            String resp = jsonObject.getJSONObject("result").getStr("text");
-            System.err.println(resp);
+            String resp = jsonObject.getJSONObject("result").getString("text");
             return resp;
         } catch (Exception e) {
             e.printStackTrace();

@@ -3,6 +3,7 @@ package com.imooc.wechat.demowechart.util;
 
 import cn.hutool.json.JSONObject;
 import com.imooc.wechat.demowechart.entity.*;
+import com.imooc.wechat.demowechart.service.WxTokeService;
 
 public class CreateMenu {
 
@@ -25,7 +26,7 @@ public class CreateMenu {
 		JSONObject jsonObject = new JSONObject(btn);
 		//准备url
 		String url = "https://api.weixin.qq.com/cgi-bin/menu/create?access_token=ACCESS_TOKEN";
-		//url = url.replace("ACCESS_TOKEN", WxService.getAccessToken());
+		url = url.replace("ACCESS_TOKEN", WxTokeService.getAccessToken());
 		//发送请求
 		String result = Util.post(url, jsonObject.toString());
 		System.out.println(result);

@@ -1,16 +1,18 @@
 package com.imooc.wechat.demowechart.controller;
 
+import cn.hutool.json.JSONObject;
 import com.imooc.wechat.demowechart.service.WxTokeService;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.Map;
 
 @RestController
+@Slf4j
 public class WxTokenController {
 
     @GetMapping("/wxToken")
@@ -38,12 +40,15 @@ public class WxTokenController {
         try {
             Map<String, String> requestMap = WxTokeService.parseRequestMessage(request.getInputStream());
             System.err.println(requestMap);
-
+            log.debug("++++++++++接收数据++++++++++++++++");
+            log.debug(requestMap.toString());
+            log.debug("++++++++++接收数据++++++++++++++++");
             //处理消息和事件推送
-            System.out.println(requestMap);
             //准备回复的数据包
             String respXml = WxTokeService.getRespose(requestMap);
-            System.err.println(respXml);
+            log.debug("++++++++++返回数据++++++++++++++++");
+            log.debug(respXml);
+            log.debug("++++++++++返回数据++++++++++++++++");
             return respXml;
         } catch (IOException e) {
             e.printStackTrace();
