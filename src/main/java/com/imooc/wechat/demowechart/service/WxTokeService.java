@@ -14,7 +14,12 @@ import org.dom4j.Element;
 import org.dom4j.io.SAXReader;
 import org.springframework.util.StringUtils;
 
+import javax.net.ssl.HttpsURLConnection;
+import java.io.File;
+import java.io.FileInputStream;
 import java.io.InputStream;
+import java.io.OutputStream;
+import java.net.URL;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.*;
@@ -34,17 +39,7 @@ public class WxTokeService {
     //用于存储token
     private static AccessToken at;
 
-    /**
-     * 获取用户的基本信息
-     * @return
-     * by 罗召勇 Q群193557337
-     */
-    public static String getUserInfo(String openid) {
-        String url="https://api.weixin.qq.com/cgi-bin/user/info?access_token=ACCESS_TOKEN&openid=OPENID&lang=zh_CN";
-        url = url.replace("ACCESS_TOKEN", getAccessToken()).replace("OPENID", openid);
-        String result = Util.get(url);
-        return result;
-    }
+
     /**
      * 获取token
      * by 罗召勇 Q群193557337
@@ -281,8 +276,17 @@ public class WxTokeService {
             return nm;
         }
         if (msg.equals("登录")) {
-            String url = "https://open.weixin.qq.com/connect/oauth2/authorize?appid=wxb6777fffdf5b64a4&redirect_uri=http://www.6sdd.com/weixin/GetUserInfo&response_type=code&scope=snsapi_userinfo#wechat_redirect";
-            TextMessage tm = new TextMessage(requestMap, "点击<a href=\"" + url + "\">这里</a>登录");
+            String url = "https://open.weixin.qq.com/connect/oauth2/authorize?appid=wx8ae26b4121499a6e&redirect_uri=http://www.6sdd.com/weixin/GetUserInfo&response_type=code&scope=snsapi_userinfo#wechat_redirect";
+            TextMessage tm = new TextMessage(requestMap, "点击<a href=\"" + url + "\">[这里]</a>\n" +
+                    "[888888888888888888888888888888]登录");
+
+            return tm;
+        }
+        if(msg.equals("跳转")){
+            String url =  "https://mp.weixin.qq.com/mp/profile_ext?action=home&__biz=MzU5NDc2MDgwOA==#wechat_redirect";
+            String s = Util.get(url);
+            System.err.println(s);
+            TextMessage tm = new TextMessage(requestMap, "点击<a href=\"" + url + "\">[跳转]</a>\n");
             return tm;
         }
         //调用方法返回聊天的内容
@@ -327,5 +331,94 @@ public class WxTokeService {
             e.printStackTrace();
         }
         return null;
+    }
+    public static String upload(String path,String type) {
+        File file = new File(path);
+        //地址
+        String url="https://api.weixin.qq.com/cgi-bin/media/upload?access_token=ACCESS_TOKEN&type=TYPE";
+        url = url.replace("ACCESS_TOKEN", getAccessToken()).replace("TYPE", type);
+        try {
+            URL urlObj = new URL(url);
+            //强转为案例连接
+            HttpsURLConnection conn = (HttpsURLConnection) urlObj.openConnection();
+            //设置连接的信息
+            conn.setDoInput(true);
+            conn.setDoOutput(true);
+            conn.setUseCaches(false);
+            //设置请求头信息
+            conn.setRequestProperty("Connection", "Keep-Alive");
+            conn.setRequestProperty("Charset", "utf8");
+            //数据的边界
+            String boundary = "-----"+System.currentTimeMillis();
+            conn.setRequestProperty("Content-Type", "multipart/form-data;boundary="+boundary);
+            //获取输出流
+            OutputStream out = conn.getOutputStream();
+            //创建文件的输入流
+            InputStream is = new FileInputStream(file);
+            //第一部分：头部信息
+            //准备头部信息
+            StringBuilder sb = new StringBuilder();
+            sb.append("--");
+            sb.append(boundary);
+            sb.append("\r\n");
+            sb.append("Content-Disposition:form-data;name=\"media\";filename=\""+file.getName()+"\"\r\n");
+            sb.append("Content-Type:application/octet-stream\r\n\r\n");
+            out.write(sb.toString().getBytes());
+            System.out.println(sb.toString());
+            //第二部分：文件内容
+            byte[] b = new byte[1024];
+            int len;
+            while((len=is.read(b))!=-1) {
+                out.write(b, 0, len);
+            }
+            is.close();
+            //第三部分：尾部信息
+            String foot = "\r\n--"+boundary+"--\r\n";
+            out.write(foot.getBytes());
+            out.flush();
+            out.close();
+            //读取数据
+            InputStream is2 = conn.getInputStream();
+            StringBuilder resp = new StringBuilder();
+            while((len=is2.read(b))!=-1) {
+                resp.append(new String(b,0,len));
+            }
+            return resp.toString();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return null;
+    }
+    /**
+     * 获取带参数二维码的ticket
+     * @return
+     * by 罗召勇 Q群193557337
+     */
+    public static String getQrCodeTicket() {
+        String at = getAccessToken();
+        String url="https://api.weixin.qq.com/cgi-bin/qrcode/create?access_token="+at;
+        //生成临时字符二维码
+        String data="{\"expire_seconds\": 600, \"action_name\": \"QR_STR_SCENE\", \"action_info\": {\"scene\": {\"scene_str\": \"llzs\"}}}";
+        String result = Util.post(url, data);
+        String ticket = JSONObject.parseObject(result).getString("ticket");
+        return ticket;
+    }
+
+    /**
+     * 获取用户的基本信息
+     * @return
+     * by 罗召勇 Q群193557337
+     */
+    public static String getUserInfo(String openid) {
+        String url="https://api.weixin.qq.com/cgi-bin/user/info?access_token=ACCESS_TOKEN&openid=OPENID&lang=zh_CN";
+        url = url.replace("ACCESS_TOKEN", getAccessToken()).replace("OPENID", openid);
+        String result = Util.get(url);
+        return result;
+    }
+
+    public static void main(String[] args) {
+        String accessToken = getAccessToken();
+        System.err.println(accessToken);
+
     }
 }

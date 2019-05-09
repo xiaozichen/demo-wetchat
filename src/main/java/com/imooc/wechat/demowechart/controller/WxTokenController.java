@@ -1,6 +1,5 @@
 package com.imooc.wechat.demowechart.controller;
 
-import cn.hutool.json.JSONObject;
 import com.imooc.wechat.demowechart.service.WxTokeService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -16,7 +15,7 @@ import java.util.Map;
 public class WxTokenController {
 
     @GetMapping("/wxToken")
-    public String  getAccentToken(HttpServletRequest request){
+    public String  wxToken(HttpServletRequest request){
         /*signature	微信加密签名，signature结合了开发者填写的token参数和请求中的timestamp参数、nonce参数。
         timestamp	时间戳
         nonce	随机数
@@ -36,7 +35,7 @@ public class WxTokenController {
 
     }
     @PostMapping("/wxToken")
-    public String   getPostAccentToken(HttpServletRequest request){
+    public String   getPostWxToken(HttpServletRequest request){
         try {
             Map<String, String> requestMap = WxTokeService.parseRequestMessage(request.getInputStream());
             System.err.println(requestMap);
